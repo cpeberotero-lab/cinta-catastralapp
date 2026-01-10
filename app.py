@@ -5,11 +5,12 @@ import io
 # Configuración de la página
 st.set_page_config(page_title="Lector Cinta Catastral", layout="wide")
 
-st.title("📂 Lector de Cinta Catastral (Formatos R1 y R2)")
+st.title("📂 Lector de Cinta Catastral")
 st.markdown("""
 **Instrucciones:**
-1. Arrastre todos sus archivos **R1** y **R2** en la caja de carga.
+1. Arrastre todos sus archivos en la caja de carga.
 2. Use la pestaña **'Portafolio Propietario'** para ver todos los predios de una misma persona.
+3. Visualice la información y, si lo desea, puede exportar en excel.
 """)
 
 # --- FUNCIONES DE PARSEO (Mantenemos la lógica corregida) ---
@@ -90,7 +91,7 @@ def parse_r2(file_content):
 # --- INTERFAZ DE USUARIO ---
 
 uploaded_files = st.file_uploader(
-    "📥 Carga Unificada (Archivos R1 y R2)", 
+    "📥 Carga de archivos", 
     type=['txt'], 
     accept_multiple_files=True
 )
@@ -222,3 +223,4 @@ if uploaded_files:
 
 else:
     st.info("👋 Bienvenido. Cargue sus archivos TXT para comenzar.")
+
