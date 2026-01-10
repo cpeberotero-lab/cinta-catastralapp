@@ -8,21 +8,15 @@ st.set_page_config(page_title="Lector Cinta Catastral", layout="wide")
 st.title("📂 Lector de Cinta Catastral (Formatos R1 y R2)")
 st.markdown("""
 **Instrucciones:**
-1. Arrastre todos sus archivos **R1** y **R2** en la caja de abajo al mismo tiempo.
-2. El sistema unificará la información y corregirá automáticamente los valores de avalúo y áreas.
+1. Arrastre todos sus archivos **R1** y **R2** en la caja de carga.
+2. Use la pestaña **'Portafolio Propietario'** para ver todos los predios de una misma persona.
 """)
 
-# --- FUNCIONES DE PARSEO CORREGIDAS (Precisión IGAC) ---
+# --- FUNCIONES DE PARSEO (Mantenemos la lógica corregida) ---
 
 def parse_r1(file_content):
     """
-    Parsea el archivo R1 con índices ajustados tras auditoría con Excel 2024.
-    Estructura detectada:
-    - Destino: Pos 252 (1 char)
-    - Area Terreno: Pos 253 (15 chars) -> Entero
-    - Area Construida: Pos 268 (11 chars) -> Con 5 decimales implícitos
-    - Avaluo: Pos 279 (10 chars) -> Entero
-    - Fecha/Vigencia: Pos 289
+    Parsea R1 con índices ajustados (Auditoría Excel 2024).
     """
     rows = []
     lines = file_content.decode('utf-8', errors='ignore').split('\n')
@@ -30,31 +24,19 @@ def parse_r1(file_content):
     for line in lines:
         if len(line) < 50: continue
         try:
-            # Índices ajustados al estándar detectado en "Fondo Ganadero"
-            # Nota: Python usa índice base 0.
-            
-            # --- Bloque Identificación ---
+            # Índices ajustados
             cod_catastral = line[0:37].strip()
-            # El nombre va hasta el 137, pero a veces muerde el tipo doc si es muy largo, ajustamos
             nombre = line[37:137].strip() 
-            
-            # --- Bloque Documento (Ajustado) ---
-            tipo_doc = line[138:139].strip() # Posición 138 exacta
-            num_doc = line[139:151].strip()  # 12 dígitos siguientes
-            
-            # --- Bloque Ubicación ---
-            direccion = line[151:251].strip() # 100 caracteres de dirección
-            
-            # --- Bloque Económico (El más crítico) ---
+            tipo_doc = line[138:139].strip()
+            num_doc = line[139:151].strip()
+            direccion = line[151:251].strip()
             destino = line[252:253].strip()
             
-            # Extracción de cadenas numéricas
-            s_area_t = line[253:268].strip() # 15 chars
-            s_area_c = line[268:279].strip() # 11 chars
-            s_avaluo = line[279:289].strip() # 10 chars
-            s_vigencia = line[293:297].strip() # Tomamos solo el año (2024) de la fecha completa
-            
-            # Conversión numérica segura
+            s_area_t = line[253:268].strip()
+            s_area_c = line[268:279].strip()
+            s_avaluo = line[279:289].strip()
+            s_vigencia = line[293:297].strip()
+
             area_t = 0.0
             area_c = 0.0
             avaluo = 0.0
@@ -62,14 +44,11 @@ def parse_r1(file_content):
             if s_area_t: 
                 try: area_t = float(s_area_t)
                 except: pass
-                
             if s_area_c:
                 try: 
-                    # El área construida suele venir como 0011200000 (112 m2). Dividimos por 100,000
                     raw_ac = float(s_area_c)
                     area_c = raw_ac / 100000.0 if raw_ac > 0 else 0
                 except: pass
-                
             if s_avaluo:
                 try: avaluo = float(s_avaluo)
                 except: pass
@@ -111,7 +90,7 @@ def parse_r2(file_content):
 # --- INTERFAZ DE USUARIO ---
 
 uploaded_files = st.file_uploader(
-    "📥 Arrastre aquí sus archivos R1 y R2 (Carga Unificada)", 
+    "📥 Carga Unificada (Archivos R1 y R2)", 
     type=['txt'], 
     accept_multiple_files=True
 )
@@ -122,101 +101,124 @@ df_r2_list = []
 if uploaded_files:
     for uploaded_file in uploaded_files:
         fname = uploaded_file.name.upper()
-        
         if "R1" in fname:
             df = parse_r1(uploaded_file.getvalue())
             df_r1_list.append(df)
-            st.toast(f"✅ R1 Procesado: {uploaded_file.name}", icon="📄")
             
         elif "R2" in fname:
             df = parse_r2(uploaded_file.getvalue())
             df_r2_list.append(df)
-            st.toast(f"🏗️ R2 Procesado: {uploaded_file.name}", icon="📄")
 
     # Consolidación
     df_main = pd.DataFrame()
     
     if df_r1_list:
         df_r1_total = pd.concat(df_r1_list, ignore_index=True)
-        
         if df_r2_list:
             df_r2_total = pd.concat(df_r2_list, ignore_index=True)
             df_main = pd.merge(df_r1_total, df_r2_total, on='Codigo_Catastral_Completo', how='left', suffixes=('', '_R2'))
         else:
             df_main = df_r1_total
-            st.info("ℹ️ Solo se detectó información R1.")
+            st.warning("Solo se cargaron archivos R1 (Básicos).")
     
     if not df_main.empty:
-        st.success("✅ Datos cargados y corregidos exitosamente")
+        st.success(f"✅ Se cargaron {len(df_main)} registros correctamente.")
 
-        # --- PESTAÑAS ---
-        tab1, tab2, tab3 = st.tabs(["🔍 Ficha Técnica", "📊 Tabla General", "📥 Exportar"])
+        # --- ESTRUCTURA DE PESTAÑAS ---
+        # Agregamos la pestaña nueva al principio
+        tab_owner, tab_detail, tab_data, tab_export = st.tabs([
+            "👤 Portafolio Propietario", 
+            "🏠 Ficha Predial (Individual)", 
+            "📊 Tabla General", 
+            "📥 Exportar"
+        ])
 
-        # PESTAÑA 1: BÚSQUEDA DETALLADA
-        with tab1:
-            st.subheader("Consulta Individual de Predios")
+        # --- PESTAÑA 1: PORTAFOLIO POR PROPIETARIO (NUEVA) ---
+        with tab_owner:
+            st.header("Resumen por Contribuyente")
+            st.markdown("Consulte todas las propiedades asociadas a un mismo nombre.")
+
+            # Obtener lista única de propietarios ordenados
+            lista_propietarios = sorted(df_main['Nombre_Propietario'].dropna().unique())
             
-            # Columna auxiliar para buscador
-            df_main['Busqueda'] = df_main['Codigo_Catastral_Completo'] + " | " + df_main['Nombre_Propietario']
-            
-            seleccion = st.selectbox(
-                "Busque por Nombre o Código Catastral:", 
-                df_main['Busqueda'].unique()
+            seleccion_prop = st.selectbox(
+                "Seleccione Propietario:", 
+                lista_propietarios,
+                index=None,
+                placeholder="Escriba para buscar..."
             )
+
+            if seleccion_prop:
+                # Filtrar data
+                portfolio = df_main[df_main['Nombre_Propietario'] == seleccion_prop]
+                
+                # Cálculos de patrimonio
+                total_predios = len(portfolio)
+                suma_avaluos = portfolio['Avaluo'].sum()
+                suma_area_t = portfolio['Area_Terreno'].sum()
+                
+                # Tarjetas de resumen
+                c1, c2, c3 = st.columns(3)
+                c1.metric("Total Predios", total_predios, border=True)
+                c2.metric("Patrimonio (Avalúo Total)", f"${suma_avaluos:,.0f}", border=True)
+                c3.metric("Área Total Terreno", f"{suma_area_t:,.0f} m²", border=True)
+                
+                st.subheader(f"Detalle de Propiedades de: {seleccion_prop}")
+                
+                # Tabla simplificada para el reporte
+                display_cols = ['Codigo_Catastral_Completo', 'Direccion_Predio', 'Destino_Economico', 'Avaluo', 'Area_Terreno']
+                
+                st.dataframe(
+                    portfolio[display_cols].style.format({
+                        'Avaluo': '${:,.0f}', 
+                        'Area_Terreno': '{:,.0f}'
+                    }),
+                    use_container_width=True
+                )
+
+        # --- PESTAÑA 2: FICHA TÉCNICA (INDIVIDUAL) ---
+        with tab_detail:
+            st.subheader("Búsqueda Específica por Código o Nombre")
+            
+            # Buscador Combinado
+            df_main['Busqueda'] = df_main['Codigo_Catastral_Completo'] + " | " + df_main['Nombre_Propietario']
+            seleccion = st.selectbox("Buscar Predio:", df_main['Busqueda'].unique())
             
             if seleccion:
                 row = df_main[df_main['Busqueda'] == seleccion].iloc[0]
                 
-                # Diseño de Tarjeta
-                c1, c2 = st.columns([1, 1.5])
+                # Diseño visual
+                col_a, col_b = st.columns([1, 2])
+                with col_a:
+                    st.info(f"**Propietario:** {row['Nombre_Propietario']}")
+                    st.write(f"**CC/NIT:** {row['Numero_Documento']}")
+                    st.divider()
+                    st.metric("Avalúo 2024", f"${row['Avaluo']:,.0f}")
                 
-                with c1:
-                    st.markdown("### 👤 Propietario")
-                    st.info(f"**{row['Nombre_Propietario']}**")
-                    st.write(f"**Doc:** {row['Tipo_Documento']} {row['Numero_Documento']}")
-                    
-                    st.markdown("### 💰 Avalúo Catastral")
-                    # Formato moneda sin decimales
-                    st.metric("Valor", f"${row['Avaluo']:,.0f}")
-                    st.caption(f"Vigencia: {row['Vigencia']}")
+                with col_b:
+                    st.warning(f"**Dirección:** {row['Direccion_Predio']}")
+                    st.code(row['Codigo_Catastral_Completo'])
+                    c_x, c_y = st.columns(2)
+                    c_x.metric("Terreno", f"{row['Area_Terreno']:,.0f} m²")
+                    c_y.metric("Construido", f"{row['Area_Construida']:,.2f} m²")
 
-                with c2:
-                    st.markdown("### 🏠 Datos del Predio")
-                    st.write(f"**Dirección:** {row['Direccion_Predio']}")
-                    st.code(row['Codigo_Catastral_Completo'], language="text")
-                    
-                    mc1, mc2 = st.columns(2)
-                    mc1.metric("Área Terreno", f"{row['Area_Terreno']:,.0f} m²")
-                    mc2.metric("Área Construida", f"{row['Area_Construida']:,.2f} m²")
-                    
-                    st.markdown(f"**Destino Económico:** {row['Destino_Economico']}")
-
-        # PESTAÑA 2: TABLA
-        with tab2:
+        # --- PESTAÑA 3: TABLA COMPLETA ---
+        with tab_data:
             st.dataframe(df_main)
 
-        # PESTAÑA 3: DESCARGA
-        with tab3:
-            st.header("Descargar Reporte")
+        # --- PESTAÑA 4: EXPORTAR ---
+        with tab_export:
+            st.write("Descargue la información procesada en Excel.")
             buffer = io.BytesIO()
             with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-                # Hoja Principal
-                df_export = df_main.drop(columns=['Busqueda'], errors='ignore')
-                df_export.to_excel(writer, sheet_name='Consolidado', index=False)
-                
-                # Ajustar ancho de columnas en Excel para que se vea bonito
-                worksheet = writer.sheets['Consolidado']
-                worksheet.set_column('A:A', 30) # Codigo
-                worksheet.set_column('C:C', 40) # Nombre
-                worksheet.set_column('F:F', 40) # Direccion
-                worksheet.set_column('J:J', 15) # Avaluo
+                df_main.drop(columns=['Busqueda'], errors='ignore').to_excel(writer, sheet_name='Consolidado', index=False)
                 
             st.download_button(
-                label="📥 Descargar Excel Corregido",
+                label="📥 Descargar Excel",
                 data=buffer.getvalue(),
                 file_name="Reporte_Catastral_2024.xlsx",
                 mime="application/vnd.ms-excel"
             )
 
 else:
-    st.info("Esperando archivos... Por favor suba sus .TXT")
+    st.info("👋 Bienvenido. Cargue sus archivos TXT para comenzar.")
