@@ -5,6 +5,37 @@ import io
 # Configuración de la página
 st.set_page_config(page_title="Lector Cinta Catastral", layout="wide")
 
+# --- ESTILOS CSS PERSONALIZADOS (Footer y Ajustes) ---
+st.markdown("""
+    <style>
+    /* Estilo para el Footer */
+    .footer {
+        margin-top: 50px;
+        margin-bottom: 30px;
+        text-align: center;
+        color: #94a3b8; /* Slate 400 */
+        font-family: sans-serif;
+        font-size: 12px; /* text-xs */
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .footer-bold {
+        font-weight: bold;
+        margin: 0;
+    }
+    .footer-link {
+        color: #3b82f6; /* Blue 500 */
+        text-decoration: none;
+        transition: all 0.3s ease;
+    }
+    .footer-link:hover {
+        color: #1d4ed8; /* Blue 700 */
+        text-decoration: underline;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 st.title("📂 Lector de Cinta Catastral")
 st.markdown("""
 **Instrucciones:**
@@ -13,7 +44,7 @@ st.markdown("""
 3. Visualice la información y, si lo desea, puede exportar en excel.
 """)
 
-# --- FUNCIONES DE PARSEO (Mantenemos la lógica corregida) ---
+# --- FUNCIONES DE PARSEO (Corregidas y Optimizadas) ---
 
 def parse_r1(file_content):
     """
@@ -91,7 +122,7 @@ def parse_r2(file_content):
 # --- INTERFAZ DE USUARIO ---
 
 uploaded_files = st.file_uploader(
-    "📥 Carga de archivos", 
+    "📥 Carga Unificada (Archivos R1 y R2)", 
     type=['txt'], 
     accept_multiple_files=True
 )
@@ -126,7 +157,6 @@ if uploaded_files:
         st.success(f"✅ Se cargaron {len(df_main)} registros correctamente.")
 
         # --- ESTRUCTURA DE PESTAÑAS ---
-        # Agregamos la pestaña nueva al principio
         tab_owner, tab_detail, tab_data, tab_export = st.tabs([
             "👤 Portafolio Propietario", 
             "🏠 Ficha Predial (Individual)", 
@@ -134,12 +164,11 @@ if uploaded_files:
             "📥 Exportar"
         ])
 
-        # --- PESTAÑA 1: PORTAFOLIO POR PROPIETARIO (NUEVA) ---
+        # --- PESTAÑA 1: PORTAFOLIO POR PROPIETARIO ---
         with tab_owner:
             st.header("Resumen por Contribuyente")
             st.markdown("Consulte todas las propiedades asociadas a un mismo nombre.")
 
-            # Obtener lista única de propietarios ordenados
             lista_propietarios = sorted(df_main['Nombre_Propietario'].dropna().unique())
             
             seleccion_prop = st.selectbox(
@@ -150,15 +179,12 @@ if uploaded_files:
             )
 
             if seleccion_prop:
-                # Filtrar data
                 portfolio = df_main[df_main['Nombre_Propietario'] == seleccion_prop]
                 
-                # Cálculos de patrimonio
                 total_predios = len(portfolio)
                 suma_avaluos = portfolio['Avaluo'].sum()
                 suma_area_t = portfolio['Area_Terreno'].sum()
                 
-                # Tarjetas de resumen
                 c1, c2, c3 = st.columns(3)
                 c1.metric("Total Predios", total_predios, border=True)
                 c2.metric("Patrimonio (Avalúo Total)", f"${suma_avaluos:,.0f}", border=True)
@@ -166,9 +192,7 @@ if uploaded_files:
                 
                 st.subheader(f"Detalle de Propiedades de: {seleccion_prop}")
                 
-                # Tabla simplificada para el reporte
                 display_cols = ['Codigo_Catastral_Completo', 'Direccion_Predio', 'Destino_Economico', 'Avaluo', 'Area_Terreno']
-                
                 st.dataframe(
                     portfolio[display_cols].style.format({
                         'Avaluo': '${:,.0f}', 
@@ -181,14 +205,12 @@ if uploaded_files:
         with tab_detail:
             st.subheader("Búsqueda Específica por Código o Nombre")
             
-            # Buscador Combinado
             df_main['Busqueda'] = df_main['Codigo_Catastral_Completo'] + " | " + df_main['Nombre_Propietario']
             seleccion = st.selectbox("Buscar Predio:", df_main['Busqueda'].unique())
             
             if seleccion:
                 row = df_main[df_main['Busqueda'] == seleccion].iloc[0]
                 
-                # Diseño visual
                 col_a, col_b = st.columns([1, 2])
                 with col_a:
                     st.info(f"**Propietario:** {row['Nombre_Propietario']}")
@@ -224,3 +246,12 @@ if uploaded_files:
 else:
     st.info("👋 Bienvenido. Cargue sus archivos TXT para comenzar.")
 
+# --- FOOTER ---
+st.markdown("""
+    <div class="footer">
+        <p class="footer-bold">Simple Taxes S.A.S. &copy; 2025</p>
+        <a href="https://simpletaxes.com.co/politica-de-privacidad-y-tratamiento-de-datos/" target="_blank" class="footer-link">
+            Política de Privacidad y Tratamiento de Datos
+        </a>
+    </div>
+""", unsafe_allow_html=True)
