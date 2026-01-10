@@ -5,10 +5,10 @@ import io
 # Configuración de la página
 st.set_page_config(page_title="Lector Cinta Catastral", layout="wide")
 
-st.title("📂 Lector de Cinta Catastral (Formatos R1 y R2)")
+st.title("📂 Lector de Cinta Catastral")
 st.markdown("""
 Esta aplicación permite cargar, procesar y visualizar archivos de cinta catastral (IGAC).
-Cargue sus archivos **R1** (Información Básica) y **R2** (Información Económica/Construcción) para comenzar.
+Cargue sus archivos **** (Información Básica) y **** (Información Económica/Construcción) para comenzar.
 """)
 
 # --- FUNCIONES DE PARSEO ---
@@ -153,4 +153,5 @@ if r1_file is not None and r2_file is not None:
         data=buffer.getvalue(),
         file_name="Reporte_Catastral_Procesado.xlsx",
         mime="application/vnd.ms-excel"
+
     )
