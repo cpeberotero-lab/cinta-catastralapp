@@ -249,9 +249,10 @@ else:
 # --- FOOTER ---
 st.markdown("""
     <div class="footer">
-        <p class="footer-bold">Simple Taxes S.A.S. &copy; 2025</p>
+        <p class="footer-bold">Simple Taxes S.A.S. &copy; 2026</p>
         <a href="https://simpletaxes.com.co/politica-de-privacidad-y-tratamiento-de-datos/" target="_blank" class="footer-link">
             Política de Privacidad y Tratamiento de Datos
         </a>
     </div>
 """, unsafe_allow_html=True)
+
