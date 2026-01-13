@@ -48,11 +48,8 @@ st.markdown("""
 def parse_r1(file_content):
     """
     Parsea R1 y genera la Referencia Catastral de 20 dígitos.
-    Estructura analizada:
-    - 0-5: Dept/Mun (08141)
-    - 5-9: Sector/Corregimiento (4 dígitos)
-    - 10-21: Manzana/Predio (11 dígitos finales del bloque)
-    Total: 20 dígitos.
+    Corrección: Se toman los primeros 9 dígitos + los 11 dígitos del bloque predial,
+    saltando el relleno de 4 ceros (posiciones 9-13) del formato antiguo.
     """
     rows = []
     lines = file_content.decode('utf-8', errors='ignore').split('\n')
@@ -63,15 +60,13 @@ def parse_r1(file_content):
             # Extracción de datos básicos
             cod_completo_archivo = line[0:37].strip() # Código largo original
             
-            # --- GENERACIÓN CÓDIGO 20 DÍGITOS ---
-            # Bloque 1: 08141 (5 chars)
-            part1 = line[0:5] 
-            # Bloque 2: Sector/Corregimiento (4 chars)
-            part2 = line[5:9] 
-            # Bloque 3: Manzana/Predio (11 chars) - Se toma desde el 10 para omitir padding
-            part3 = line[10:21]
+            # --- GENERACIÓN CÓDIGO 20 DÍGITOS (CORREGIDO) ---
+            # Parte 1: 0-9 (Ej: 081410100)
+            part1 = line[0:9] 
+            # Parte 2: 13-24 (Ej: 02340019000) - Saltamos los 4 ceros del medio
+            part2 = line[13:24] 
             
-            ref_catastral_20 = f"{part1}{part2}{part3}"
+            ref_catastral_20 = f"{part1}{part2}"
 
             # Resto de campos
             nombre = line[37:137].strip() 
@@ -279,7 +274,7 @@ else:
 # --- FOOTER ---
 st.markdown("""
     <div class="footer">
-        <p class="footer-bold">Simple Taxes S.A.S. &copy; 2025</p>
+        <p class="footer-bold">Simple Taxes S.A.S. &copy; 2026</p>
         <a href="https://simpletaxes.com.co/politica-de-privacidad-y-tratamiento-de-datos/" target="_blank" class="footer-link">
             Política de Privacidad y Tratamiento de Datos
         </a>
